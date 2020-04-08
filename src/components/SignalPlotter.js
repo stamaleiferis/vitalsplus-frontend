@@ -48,14 +48,24 @@ export default class SignalPlotter extends React.Component {
         {
           data: this.state.samples
         }
-      ]
+      ],
+      yAxis: {
+        title: {
+            text: 'ECG (mV)'
+        }
+      },
+      xAxis: {
+        title: {
+            text: 'time (ms)'
+        }
+      }
     };
 
     return(
       <div>
         <HighchartsReact
           highcharts={Highcharts}
-          
+
           options={options}
         />
       </div>
