@@ -1,129 +1,87 @@
 import React from "react";
 import Highcharts from 'highcharts/highstock';
 import HighchartsReact from 'highcharts-react-official';
-var noble = require('noble');
+//var noble = require('noble');
+//var Bluetooth	= require('node-web-bluetooth');
 
 export default class RealTimePlotter extends React.Component {
   constructor(props) {
       super(props);
-
-      this.onHeartRateChanged = this.onHeartRateChanged.bind(this);
-      this.handleBodySensorLocationCharacteristic = this.handleBodySensorLocationCharacteristic.bind(this);
-      this.handleHeartRateMeasurementCharacteristic = this.handleHeartRateMeasurementCharacteristic.bind(this);
-      this.parseHeartRate = this.parseHeartRate.bind(this);
-
-
-      this.state = {hr: ''};
+      this.state = {hr: '',device:'',byte1:'',byte2:'',options:'',data:[]};
   }
 
-  componentDidMount(){
+  async componentDidMount(){
+    //console.log("BLUETOOTH: "+Bluetooth)
+    let device = await navigator.bluetooth.requestDevice({
+      filters: [
+          { namePrefix: 'MAX' }
+      ],
+      optionalServices: [ ]
+    });
+    let server = await device.gatt.connect();
+    let service = await server.getPrimaryService(0x180D);
+    let characteristic = await service.getCharacteristic(0x2A37);
+    characteristic.addEventListener(
+      'characteristicvaluechanged', e => {
+          let byte1 = e.target.value.getUint8(0);
+          let byte2 = e.target.value.getUint8(1);
+
+          console.log(e.target.value.getUint16(0,true))
+
+          let d = this.state.data
+          if (d.length==2000){d.shift()}
+          d.push(byte2)
+
+          this.setState({hr:byte2, byte1: byte1, byte2:byte2,data:d});
+
+
+    }
+);
+
+characteristic.startNotifications();
   }
 
   componentWillUnmount(){
   }
-  //
-   parseHeartRate(data) {
-    const flags = data.getUint8(0);
-    const rate16Bits = flags & 0x1;
-    const result = {};
-    let index = 1;
-    if (rate16Bits) {
-      result.heartRate = data.getUint16(index, /*littleEndian=*/true);
-      index += 2;
-    } else {
-      result.heartRate = data.getUint8(index);
-      index += 1;
-    }
 
-    const contactDetected = flags & 0x2;
-    const contactSensorPresent = flags & 0x4;
-    if (contactSensorPresent) {
-      result.contactDetected = !!contactDetected;
-    }
-    const energyPresent = flags & 0x8;
-    if (energyPresent) {
-      result.energyExpended = data.getUint16(index, /*littleEndian=*/true);
-      index += 2;
-    }
-    const rrIntervalPresent = flags & 0x10;
-    if (rrIntervalPresent) {
-      const rrIntervals = [];
-      for (; index + 1 < data.byteLength; index += 2) {
-        rrIntervals.push(data.getUint16(index, /*littleEndian=*/true));
-      }
-      result.rrIntervals = rrIntervals;
-    }
-    return result;
-  }
-  //
-   onHeartRateChanged(event) {
-    const characteristic = event.target;
-    const bpm = this.parseHeartRate(characteristic.value)
-    //console.log(this.parseHeartRate(characteristic.value));
-    this.setState({hr: bpm.heartRate})
-    console.log("BPM: "+ bpm.heartRate)
-}
-  //
-   handleHeartRateMeasurementCharacteristic(characteristic) {
-    return characteristic.startNotifications()
-    .then(char => {
-      characteristic.addEventListener('characteristicvaluechanged',
-                                      this.onHeartRateChanged);
-    });
-  }
-  //
-   handleBodySensorLocationCharacteristic(characteristic) {
-    if (characteristic === null) {
-      console.log("Unknown sensor location.");
-      return Promise.resolve();
-    }
-    return characteristic.readValue()
-    .then(sensorLocationData => {
-      const sensorLocation = sensorLocationData.getUint8(0);
-      switch (sensorLocation) {
-        case 0: return 'Other';
-        case 1: return 'Chest';
-        case 2: return 'Wrist';
-        case 3: return 'Finger';
-        case 4: return 'Hand';
-        case 5: return 'Ear Lobe';
-        case 6: return 'Foot';
-        default: return 'Unknown';
-      }
-    }).then(location => console.log(location));
-  }
-  //
 
   render(){
     //console.log(navigator)
-
-
-
-
-
     //
-    navigator.bluetooth.requestDevice({
-      filters: [{
-        services: ['heart_rate'],
-      }]
-    }).then(device => device.gatt.connect())
-  .then(server => server.getPrimaryService('heart_rate'))
-  .then(service => {
-    const chosenHeartRateService = service;
-    return Promise.all([
-      service.getCharacteristic('body_sensor_location')
-        .then(this.handleBodySensorLocationCharacteristic),
-      service.getCharacteristic('heart_rate_measurement')
-        .then(this.handleHeartRateMeasurementCharacteristic),
-    ]);
-  });
+
+    let options = {
+      title: {
+        text: "HR"
+      },
+      series: [
+        {
+          data: this.state.data
+        }
+      ],
+      yAxis: {
+        title: {
+            text: 'HR (bpm)'
+        }
+      },
+      xAxis: {
+        title: {
+            text: 'time (ms)'
+        }
+      }
+    };
 
     return(
       <div>
         <p>Here</p>
 
         <p>{navigator.platform}</p>
-        <p>{this.state.hr}</p>
+        <p>{this.state.byte1}, {this.state.byte2}</p>
+
+        <HighchartsReact
+          highcharts={Highcharts}
+
+          options={options}
+        />
       </div>
     )
   }
