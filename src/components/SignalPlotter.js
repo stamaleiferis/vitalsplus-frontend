@@ -16,7 +16,31 @@ export default class SignalPlotter extends React.Component {
                     duration:0,
                     timestamp:'',
                     r_peaks:[],
-                    avg_ht:0
+                    avg_ht:0,
+                    options: {
+
+                      chart: {
+                                zoomType: 'xy'
+                            },
+                      title: {
+                        text: this.state.ecg_id
+                      },
+                      series: [
+                        {
+                          data: this.state.samples
+                        }
+                      ],
+                      yAxis: {
+                        title: {
+                            text: 'ECG (mV)'
+                        }
+                      },
+                      xAxis: {
+                        title: {
+                            text: 'time (ms)'
+                        }
+                      }
+                    }
 
         };
 
@@ -40,33 +64,13 @@ export default class SignalPlotter extends React.Component {
 
   render(){
 
-    const options = {
-      title: {
-        text: this.state.ecg_id
-      },
-      series: [
-        {
-          data: this.state.samples
-        }
-      ],
-      yAxis: {
-        title: {
-            text: 'ECG (mV)'
-        }
-      },
-      xAxis: {
-        title: {
-            text: 'time (ms)'
-        }
-      }
-    };
 
     return(
       <div>
         <HighchartsReact
           highcharts={Highcharts}
 
-          options={options}
+          options={this.options}
         />
       </div>
 
