@@ -9,7 +9,7 @@ import PatientInput from './components/PatientInput';
 import SignalPlotter from './components/SignalPlotter';
 import RealTimePlotter from './components/RealTimePlotter';
 import PatientDetails from './components/PatientDetails';
-
+import { ecg_samples } from './ecgValues.js'
 //import Bluetooth	from 'node-web-bluetooth';
 
 
@@ -34,12 +34,15 @@ var noble = require('noble');
 // work properly.
 
 const options = {
+  chart: {
+                zoomType: 'x'
+            },
   title: {
     text: 'My stock chart'
   },
   series: [
     {
-      data: [1, 2, 1, 4, 3, 6, 7, 3, 8, 6, 9]
+      data: ecg_samples
     }
   ]
 };
@@ -108,7 +111,7 @@ function Signals() {
     <div>
     <HighchartsReact
       highcharts={Highcharts}
-      constructorType={'stockChart'}
+
       options={options}
     />
   </div>

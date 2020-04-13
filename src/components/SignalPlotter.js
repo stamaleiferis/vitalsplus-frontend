@@ -69,8 +69,8 @@ export default class SignalPlotter extends React.Component {
       <div>
         <HighchartsReact
           highcharts={Highcharts}
-
           options={this.options}
+          ref='chart'
         />
       </div>
 

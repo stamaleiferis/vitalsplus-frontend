@@ -8,44 +8,107 @@ import { ecg_samples } from '../ecgValues.js'
 export default class RealTimePlotter extends React.Component {
   constructor(props) {
       super(props);
+      this.togglePpgRedNotifications = this.togglePpgRedNotifications.bind(this);
+      this.togglePpgIrNotifications = this.togglePpgIrNotifications.bind(this);
       this.toggleEcgNotifications = this.toggleEcgNotifications.bind(this);
+      this.toggleAllNotifications = this.toggleAllNotifications.bind(this);
+
       this.resetStream = this.resetStream.bind(this);
       let context = this;
+      this.ecg_data = [];
+      this.ppg_red_data = [];
+      this.ppg_ir_data = [];
+      this.ecg_count = 0
+      this.ppg_red_count = 0
+      this.ppg_ir_count = 0
+      this.start = 0
       this.state = {hr: '',
                     device:'',
-                    ecg_data:[],
-                    ppg_red_data:[],
-                    ppg_ir_data:[],
-                    ecg_count:0,
-                    ppg_red_count:0,
-                    ppg_ir_count:0,
                     _ecgchar:'',
+                    _ecgon:false,
                     _ppgredchar:'',
+                    _ppgredon:false,
                     _ppgirchar:'',
+                    _ppgiron:false,
                     options: {
+                      boost: {
+                        enabled: true
+                      },
                       chart: {
+                              type:'spline',
                               zoomType: 'x',
                             },
                       title: {
-                        text: "Signal TODO"
+                        text: ""
+                      },
+                      series: {
+                          boostThreshold: 50
                       },
                       series: [
                         {
-                          data: []
+                          name:"ECG",
+                          data: [],
+                          yAxis: 0
                         },
                         {
-                          data:[]
+                          name: "PPG Red",
+                          data:[],
+                          yAxis:1
                         },
                         {
-                          data:[]
+                          name: "PPG Infrared",
+                          data:[],
+                          yAxis:2
                         }
                       ],
-                      yAxis: {
+                      yAxis: [{ // Primary yAxis
+                        labels: {
+                            format: '{value}mV',
+                            style: {
+                                color: Highcharts.getOptions().colors[2]
+                            }
+                        },
                         title: {
-                            text: 'y value'
-                        }
+                            text: 'Millivolts',
+                            style: {
+                                color: Highcharts.getOptions().colors[2]
+                            }
+                        },
+                        opposite: true
 
                       },
+                       { // Secondary yAxis
+                        gridLineWidth: 0,
+                        title: {
+                            text: 'Photon Count Red',
+                            style: {
+                                color: Highcharts.getOptions().colors[0]
+                            }
+                        },
+                        labels: {
+                            format: '{value} SpO2',
+                            style: {
+                                color: Highcharts.getOptions().colors[0]
+                            }
+                        }
+                      },
+                      { // Third yAxis
+                       gridLineWidth: 0,
+                       title: {
+                           text: 'Photon Count IR',
+                           style: {
+                               color: Highcharts.getOptions().colors[0]
+                           }
+                       },
+                       labels: {
+                           format: '{value} SpO2',
+                           style: {
+                               color: Highcharts.getOptions().colors[0]
+                           }
+                       }
+                     }
+                    ],
+
                       xAxis: {
                         title: {
                             text: 'time (ms)'
@@ -93,21 +156,10 @@ export default class RealTimePlotter extends React.Component {
       'characteristicvaluechanged', e => {
         //console.log("PPG RED val changed")
           let uint32ppgred = e.target.value.getUint32(0,true); //get value
-          let d = this.state.ppg_red_data; //get array of stored values
-          let count = this.state.ppg_red_count; //number of samples in the array
-          if (count>500){d.shift()} // how many samples to hold at a time TODO change
-          d.push(uint32ppgred)
-
-          if ((count%10)==0){
-            this.setState({
-              options: {
-                series: [
-                  {data:this.state.ecg_data},{data:d},{ data: this.state.ppg_ir_data}
-                ]
-              }
-            });
-          }
-          this.setState({hr:0/*TODO*/,ppg_red_data:d,ppg_red_count:count+1});
+          let count = this.ppg_red_count; //number of samples in the array
+          this.ppg_red_data.push(uint32ppgred)
+          this.ppg_red_count = count + 1
+          this.refs.chart.chart.series[1].setData(this.ppg_red_data)
       }
     );
 
@@ -116,21 +168,10 @@ export default class RealTimePlotter extends React.Component {
       'characteristicvaluechanged', e => {
           //console.log("PPG IR val changed")
           let uint32ppgir = e.target.value.getUint32(0,true); //get value
-          let d = this.state.ppg_ir_data; //get array of stored values
-          let count = this.state.ppg_ir_count; //number of samples in the array
-          if (count>500){d.shift()} // how many samples to hold at a time TODO change
-          d.push(uint32ppgir)
-
-          if ((count%10)==0){
-            this.setState({
-              options: {
-                series: [
-                  {data:this.state.ecg_data},{data:this.state.ppg_red_data},{ data: d}
-                ]
-              }
-            });
-          }
-          this.setState({ppg_ir_data:d,ppg_ir_count:count+1});
+          let count = this.ppg_red_count; //number of samples in the array
+          this.ppg_ir_data.push(uint32ppgir)
+          this.ppg_ir_count = count + 1
+          this.refs.chart.chart.series[2].setData(this.ppg_ir_data)
       }
     );
 
@@ -139,52 +180,61 @@ export default class RealTimePlotter extends React.Component {
       'characteristicvaluechanged', e => {
           //console.log("ECG val changed")
           let int16ecg = e.target.value.getInt16(0,true); //get value
-          let d = this.state.ecg_data; //get array of stored values
-          let count = this.state.ecg_count; //number of samples in the array
-          if (count>500){d.shift()} // how many samples to hold at a time TODO change
-          d.push(int16ecg)
-          //this.refs.chart.chart.series[0].xData.push(count)
-          //this.refs.chart.chart.series[0].yData.push(int16ecg)
-          //console.log(this.refs.chart.chart)
+          let count = this.ecg_count; //number of samples in the array
+          //if (count>300){shift=true}//{this.start=this.start+1} // how many samples to hold at a time TODO change
+          this.ecg_data.push(int16ecg)
+          this.ecg_count = count+1
+          this.refs.chart.chart.series[0].setData(this.ecg_data)
 
-
-          if ((count%10)==0){
-            this.setState({
-              options: {
-                series:[
-                  { data: d}, {data:this.state.ppg_red_data},{data:this.state.ppg_ir_data}
-
-                ]
-              }
-            });
-          }
-          this.setState({hr:0/*TODO*/,ecg_data:d,ecg_count:count+1});
       }
     );
 
-    this.setState({_ecgchar:ecgCharacteristic, _ppgredchar:ppgRedCharacteristic, _ppgirchar: ppgIrCharacteristic})
+    this.setState({device:device,_ecgchar:ecgCharacteristic, _ppgredchar:ppgRedCharacteristic, _ppgirchar: ppgIrCharacteristic})
     ecgCharacteristic.startNotifications();
-    ppgRedCharacteristic.startNotifications();
-    ppgIrCharacteristic.startNotifications();
+    //ppgRedCharacteristic.startNotifications();
+    //ppgIrCharacteristic.startNotifications();
   }// end componentDidMount
 
   async componentWillUnmount(){
-    this.state._ecgchar.stopNotifications();
-    this.state._ppgredchar.stopNotifications();
-    this.state._ppgirchar.stopNotifications();
+    if (this.state._ecgchar != '' && this.state._ppgredchar!='' && this.state._ppgirchar!=''){
+      this.state._ecgchar.stopNotifications();
+      this.state._ppgredchar.stopNotifications();
+      this.state._ppgirchar.stopNotifications();
+      await this.state.device.gatt.disconnect();
+    }
   }
   componentDidUpdate(prevProps, prevState, snapshot){
     //console.log("componentDidUpdate")
   }
 
   toggleEcgNotifications(){
+    if (this.state._ecgon){this.state._ecgchar.stopNotifications()}
+    else {this.state._ecgchar.startNotifications()}
+    this.setState({_ecgon:!this.state._ecgon})
+
+    //console.log(JSON.stringify(this.state.data));
+  }
+
+  togglePpgRedNotifications(){
+    if (this.state._ppgredon){this.state._ppgredchar.stopNotifications()}
+    else {this.state._ppgredchar.startNotifications()}
+    this.setState({_ppgredon:!this.state._ppgredon})
+  }
+  togglePpgIrNotifications(){
+    if (this.state._ppgiron){this.state._ppgirchar.stopNotifications()}
+    else {this.state._ppgirchar.startNotifications()}
+    this.setState({_ppgiron:!this.state._ppgiron})
+
+  }
+  toggleAllNotifications(){ //TODO fix this for on/off
     this.state._ecgchar.stopNotifications();
-    console.log(JSON.stringify(this.state.data));
+    this.state._ppgredchar.stopNotifications();
+    this.state._ppgirchar.stopNotifications();
   }
 
   resetStream(){
     //this.setState({data:[]})
-    this.refs.chart.chart.series[0].addPoint([5,5],true,true)
+
   }
 
 
@@ -196,13 +246,32 @@ export default class RealTimePlotter extends React.Component {
 
     return(
       <div>
-        <p>Here</p>
-
         <p>{navigator.platform}</p>
-        <p>{this.state.ecg_val}</p>
+
         <div>
+        <button onClick={()=>{}}>
+          Connect BT
+        </button>
+        </div>
+
+        <div>
+        <button onClick={()=>{}}>
+          Same graph/Multiple Graphs
+        </button>
+        </div>
+
+        <div>
+          <button onClick={this.toggleAllNotifications}>
+            Unsubscribe All
+          </button>
           <button onClick={this.toggleEcgNotifications}>
-            Unsubscribe notifications
+            Unsubscribe ECG
+          </button>
+          <button onClick={this.togglePpgRedNotifications}>
+            Unsubscribe PPG Red
+          </button>
+          <button onClick={this.togglePpgIrNotifications}>
+            Unsubscribe PPG Infrared
           </button>
           <button onClick={this.resetStream}>
             Reset stream
@@ -212,7 +281,7 @@ export default class RealTimePlotter extends React.Component {
         <HighchartsReact
           highcharts={Highcharts}
           options={this.state.options}
-          ref="chart"
+          ref='chart'
         />
       </div>
     )
