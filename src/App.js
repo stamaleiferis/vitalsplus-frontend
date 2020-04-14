@@ -3,6 +3,7 @@ import React from "react";
 import { render } from 'react-dom';
 import Highcharts from 'highcharts/highstock';
 import HighchartsReact from 'highcharts-react-official';
+import {Menu} from 'semantic-ui-react';
 import axios from 'axios';
 import { useState } from 'react';
 import PatientInput from './components/PatientInput';
@@ -19,9 +20,7 @@ import {
   Route,
   Link
 } from "react-router-dom";
-var noble = require('noble');
-//const Bluetooth	= require('node-web-bluetooth');
-//const bluetooth = require("webbluetooth").bluetooth;
+
 
 
 // This site has 3 pages, all of which are rendered
@@ -53,19 +52,21 @@ export default function App() {
   return (
     <Router>
       <div>
-        <ul>
-          <li>
+      <Menu fluid tabular>
+        <Menu.Item link>
             <Link to="/">Home</Link>
-          </li>
-          <li>
+        </Menu.Item>
+        <Menu.Item link>
             <Link to="/realTime">Real time plot</Link>
-          </li>
-          <li>
+        </Menu.Item>
+        <Menu.Item link>
             <Link to="/signals">Signals</Link>
-          </li>
-        </ul>
+        </Menu.Item>
+      </Menu>
 
-        <hr />
+
+
+
 
         {/*
           A <Switch> looks through all its children <Route>
@@ -87,7 +88,7 @@ export default function App() {
           <Route path="/plot" component={PatientDetails}>
           </Route>
         </Switch>
-      </div>
+        </div>
     </Router>
   );
 }

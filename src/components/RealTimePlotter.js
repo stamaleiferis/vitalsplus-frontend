@@ -1,15 +1,19 @@
 import React from "react";
 import Highcharts from 'highcharts/highstock';
 import HighchartsReact from 'highcharts-react-official';
-//var noble = require('noble');
-//var Bluetooth	= require('node-web-bluetooth');
+import axios from 'axios';
+import { Form, Button, Icon, Message, Grid, Dropdown,Header } from 'semantic-ui-react';
+import 'semantic-ui-css/semantic.min.css';
 import { ecg_samples } from '../ecgValues.js'
 
 export default class RealTimePlotter extends React.Component {
   constructor(props) {
       super(props);
+      this.upload_signals = this.upload_signals.bind(this);
       this.connectBT = this.connectBT.bind(this);
       this.disconnectBT = this.disconnectBT.bind(this);
+      this.startRecording = this.startRecording.bind(this);
+      this.stopRecording = this.stopRecording.bind(this);
       this.togglePpgRedNotifications = this.togglePpgRedNotifications.bind(this);
       this.togglePpgIrNotifications = this.togglePpgIrNotifications.bind(this);
       this.toggleEcgNotifications = this.toggleEcgNotifications.bind(this);
@@ -30,8 +34,10 @@ export default class RealTimePlotter extends React.Component {
       this._ecgchar = ''
       this._ppgredchar = ''
       this._ppgirchar = ''
-
+      this.start_idx = 0
       this.state = {
+                    upload_en: false,
+                    bt_connected:false,
                     options: {
                       boost: {
                         enabled: true
@@ -44,13 +50,18 @@ export default class RealTimePlotter extends React.Component {
                         text: ""
                       },
                       series: {
-                          boostThreshold: 50
+                          boostThreshold: 50,
+                          dataGrouping: {
+                              enabled: false
+                          }
                       },
                       series: [
                         {
+                          type:'spline',
                           name:"ECG",
                           data: [],
-                          yAxis: 0
+                          yAxis: 0,
+                          //cropThreshold:300
                         },
                         {
                           name: "PPG Red",
@@ -63,28 +74,33 @@ export default class RealTimePlotter extends React.Component {
                           yAxis:2
                         }
                       ],
-                      yAxis: [{ // Primary yAxis
+                      yAxis: [{ // ECG yAxis
                         labels: {
-                            format: '{value}mV',
+                            format: '{value}',
                             style: {
                                 color: Highcharts.getOptions().colors[2]
                             }
                         },
+                        //max:100,
+                        //min:-100,
+                        //endOnTick: false,
+                        //startOnTick: false,
                         title: {
-                            text: 'Millivolts',
+                            text: 'ADC value',
                             style: {
-                                color: Highcharts.getOptions().colors[2]
+                                color: Highcharts.getOptions().colors[0]
                             }
                         },
-                        opposite: true
+                        opposite: false
 
                       },
-                       { // Secondary yAxis
+                       { // PPG Red yAxis
+                        visible:false,
                         gridLineWidth: 0,
                         title: {
                             text: 'Photon Count Red',
                             style: {
-                                color: Highcharts.getOptions().colors[0]
+                                color: Highcharts.getOptions().colors[2]
                             }
                         },
                         labels: {
@@ -94,7 +110,8 @@ export default class RealTimePlotter extends React.Component {
                             }
                         }
                       },
-                      { // Third yAxis
+                      { // PPG Infrared yAxis
+                       visible:false,
                        gridLineWidth: 0,
                        title: {
                            text: 'Photon Count IR',
@@ -113,7 +130,7 @@ export default class RealTimePlotter extends React.Component {
 
                       xAxis: {
                         title: {
-                            text: 'time (ms)'
+                            text: 'Sample'
                         }
                       }
                     }//end options
@@ -130,11 +147,21 @@ export default class RealTimePlotter extends React.Component {
 
   async componentWillUnmount(){
     if (this.device !=''){
-      await this.device.gatt.disconnect();
+      if (this.device.gatt.connected){
+        await this.device.gatt.disconnect()
+        this.state.bt_connected = false
+      }
     }
   }
   componentDidUpdate(prevProps, prevState, snapshot){
     //console.log("componentDidUpdate")
+  }
+
+  // TODO: ppg upload
+  async upload_signals(){
+
+    //axios.post(url[, data[, config]])
+
   }
 
   toggleEcgNotifications(){
@@ -155,13 +182,13 @@ export default class RealTimePlotter extends React.Component {
     this._ppgiron = !this._ppgiron
 
   }
-  toggleAllNotifications(){ //TODO fix this for on/off
-    this._ecgchar.stopNotifications();
-    this._ppgredchar.stopNotifications();
-    this._ppgirchar.stopNotifications();
+  toggleAllNotifications(){ //TODO keep previous char_on state
+    this.togglePpgRedNotifications()
+    this.togglePpgIrNotifications()
+    this.toggleEcgNotifications()
   }
 
-  async resetStream(){
+  async resetStream(){ //TODO: keep previous char_on state
     await this._ecgchar.stopNotifications();
     await this._ppgredchar.stopNotifications();
     await this._ppgirchar.stopNotifications();
@@ -174,8 +201,6 @@ export default class RealTimePlotter extends React.Component {
     await this._ecgchar.startNotifications();
     await this._ppgredchar.startNotifications();
     await this._ppgirchar.startNotifications();
-
-    //this.setState({data:[]})
 
   }
 
@@ -207,6 +232,15 @@ export default class RealTimePlotter extends React.Component {
     const ppgIrCharacteristic = await ppgService.getCharacteristic(PPG_IR_CHAR_UUID);
     let ecgCharacteristic = await ecgService.getCharacteristic(ECG_CHAR_UUID);
 
+    ecgCharacteristic.stopNotifications(); this._ecgon = false;
+    ppgRedCharacteristic.stopNotifications(); this._ppgredon = false;
+    ppgIrCharacteristic.stopNotifications(); this._ppgiron = false;
+    this.device = device
+    this._ecgchar = ecgCharacteristic
+    this._ppgredchar = ppgRedCharacteristic
+    this._ppgirchar = ppgIrCharacteristic
+    this.setState({bt_connected:true})
+
 
     // on red ppg char change
     ppgRedCharacteristic.addEventListener(
@@ -216,7 +250,12 @@ export default class RealTimePlotter extends React.Component {
           let count = this.ppg_red_count; //number of samples in the array
           this.ppg_red_data.push(uint32ppgred)
           this.ppg_red_count = count + 1
-          this.refs.chart.chart.series[1].setData(this.ppg_red_data)
+          let shift = false
+          let draw = false
+          if (count > 700){shift = true}
+          if (count%5==0){draw = true}
+          this.refs.chart.chart.series[1].addPoint(uint32ppgred, draw, shift,false)
+
       }
     );
 
@@ -226,9 +265,14 @@ export default class RealTimePlotter extends React.Component {
           //console.log("PPG IR val changed")
           let uint32ppgir = e.target.value.getUint32(0,true); //get value
           let count = this.ppg_red_count; //number of samples in the array
-          this.ppg_ir_data.push(uint32ppgir)
+          //this.ppg_ir_data.push(uint32ppgir)
           this.ppg_ir_count = count + 1
-          this.refs.chart.chart.series[2].setData(this.ppg_ir_data)
+          let shift = false
+          let draw = false
+          if (count > 700){shift = true}
+          if (count%5==0){draw = true}
+          this.refs.chart.chart.series[2].addPoint(uint32ppgir, draw, shift,false)
+
       }
     );
 
@@ -241,18 +285,35 @@ export default class RealTimePlotter extends React.Component {
           //if (count>300){shift=true}//{this.start=this.start+1} // how many samples to hold at a time TODO change
           this.ecg_data.push(int16ecg)
           this.ecg_count = count+1
-          this.refs.chart.chart.series[0].setData(this.ecg_data)
+          let shift = false
+          let draw = false
+          if (count > 700){shift = true}
+          if (count%5==0){draw = true}
+          /*
+          if (count%5==0){
+            this.refs.chart.chart.series[0].setData(this.ecg_data)
+          }*/
 
+          this.refs.chart.chart.series[0].addPoint(int16ecg, draw, shift,false)
       }
     );
 
-    this.device = device
-    this._ecgchar = ecgCharacteristic
-    this._ppgredchar = ppgRedCharacteristic
-    this._ppgirchar = ppgIrCharacteristic
-    ecgCharacteristic.startNotifications(); this._ecgon = true;
-    //ppgRedCharacteristic.startNotifications(); this._ppgredon = false;
-    //ppgIrCharacteristic.startNotifications(); this._ppgiron = false
+  }
+
+  startRecording(){
+    if (this.state.bt_connected){
+      this._ecgchar.startNotifications(); this._ecgon = true;
+      //this._ppgredchar.startNotifications(); this._ppgredon = true;
+      //this._ppgirchar.startNotifications(); this._ppgiron = true;
+    }
+  }
+
+  stopRecording(){
+    this._ecgchar.stopNotifications(); this._ecgon = false;
+    this._ppgredchar.stopNotifications(); this._ppgredon = false;
+    this._ppgirchar.stopNotifications(); this._ppgiron = false;
+    this.refs.chart.chart.series[0].setData(this.ecg_data)
+    this.setState({upload_en:true})
 
   }
 
@@ -260,6 +321,7 @@ export default class RealTimePlotter extends React.Component {
     if (this.device != ''){
       if (this.device.gatt.connected){
         await this.device.gatt.disconnect()
+        this.setState({bt_connected:false})
         console.log("Disconnected from peripheral")
       }else{
         console.log("Peripheral already disconnected")
@@ -276,36 +338,58 @@ export default class RealTimePlotter extends React.Component {
 
     return(
       <div>
-        <p>{navigator.platform}</p>
+        <Header size='huge' textAlign='center'>Record Signals</Header>
 
         <div>
-        <button onClick={this.connectBT}>
+        <Button.Group>
+        <Button.Group>
+        <Button color='green' onClick={this.connectBT}>
           Connect BT
-        </button>
-
-        <button onClick={this.disconnectBT}>
+        </Button>
+        <Button color='red' onClick={this.disconnectBT}>
           Disconnect
-        </button>
+        </Button>
+        </Button.Group>
 
-        </div>
-
-        <div>
-          <button onClick={this.toggleAllNotifications}>
-            Unsubscribe All
-          </button>
-          <button onClick={this.toggleEcgNotifications}>
-            Unsubscribe ECG
-          </button>
-          <button onClick={this.togglePpgRedNotifications}>
-            Unsubscribe PPG Red
-          </button>
-          <button onClick={this.togglePpgIrNotifications}>
-            Unsubscribe PPG Infrared
-          </button>
-          <button onClick={this.resetStream}>
+          <Button.Group>
+          <Button color='blue' onClick={this.toggleAllNotifications}>
+            Toggle All
+          </Button>
+          <Button onClick={this.toggleEcgNotifications}>
+            Toggle ECG
+          </Button>
+          <Button onClick={this.togglePpgRedNotifications}>
+            Toggle PPG Red
+          </Button>
+          <Button onClick={this.togglePpgIrNotifications}>
+            Toggle PPG Infrared
+          </Button>
+          </Button.Group>
+          <Button color='blue' onClick={this.resetStream}>
             Reset stream
-          </button>
-        </div>
+          </Button>
+          </Button.Group>
+          </div>
+
+        {this.state.bt_connected &&
+          <>
+          <div>Connected</div>
+          <Button.Group horizontal labeled icon>
+            <Button icon='play' content='Start recording' onClick={this.startRecording}>
+            </Button>
+            <Button icon='stop' content='Stop recording' onClick={this.stopRecording}>
+            </Button>
+            {this.state.upload_en &&
+              <Button icon='cloud upload'>
+              </Button>
+            }
+          </Button.Group>
+          </>
+
+        }
+
+
+
 
         <HighchartsReact
           highcharts={Highcharts}

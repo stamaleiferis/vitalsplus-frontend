@@ -55,10 +55,9 @@ export default class PatientInput extends React.Component {
          //console.log("Got signals")
        }catch(e){
          //console.log("Error" +e)
-         this.setState({ecgIds: []})
        }
      }else{
-       this.setState({ecgIds: []})
+
      }
   }
 
