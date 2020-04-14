@@ -159,8 +159,26 @@ export default class RealTimePlotter extends React.Component {
 
   // TODO: ppg upload
   async upload_signals(){
+    if (this.state.upload_en){
+      const patient_id = '5e8c2c92166b290827169a74'
+      const data = {
+              timestamp:JSON.stringify(new Date(Date.now())),
+              duration:'',
+              sample_rate:200,
+              samples:this.ecg_data,
+              r_peaks:[],
+              avg_ht:72,
+              afib:false
+      }
+      const response = await axios.post('http://localhost:3000/patients/patient/ecg/record/'+patient_id, data);
+      console.log(patient_id)
+      //if upload was successfull
+      this.setState({upload_en:false})
+      //else: popup error message
+    }
 
-    //axios.post(url[, data[, config]])
+
+
 
   }
 
@@ -302,6 +320,14 @@ export default class RealTimePlotter extends React.Component {
 
   startRecording(){
     if (this.state.bt_connected){
+      this.refs.chart.chart.series[0].setData([])
+      this.refs.chart.chart.series[1].setData([])
+      this.refs.chart.chart.series[2].setData([])
+      this.refs.chart.chart.redraw(false)
+      this.ecg_data = [];     this.ecg_count = 0
+      this.ppg_red_data = []; this.ppg_red_count = 0
+      this.ppg_ir_data = [];  this.ppg_ir_count = 0
+
       this._ecgchar.startNotifications(); this._ecgon = true;
       //this._ppgredchar.startNotifications(); this._ppgredon = true;
       //this._ppgirchar.startNotifications(); this._ppgiron = true;
@@ -344,7 +370,7 @@ export default class RealTimePlotter extends React.Component {
         <Button.Group>
         <Button.Group>
         <Button color='green' onClick={this.connectBT}>
-          Connect BT
+          Connect BLE
         </Button>
         <Button color='red' onClick={this.disconnectBT}>
           Disconnect
@@ -380,7 +406,7 @@ export default class RealTimePlotter extends React.Component {
             <Button icon='stop' content='Stop recording' onClick={this.stopRecording}>
             </Button>
             {this.state.upload_en &&
-              <Button icon='cloud upload'>
+              <Button icon='cloud upload' onClick={this.upload_signals}>
               </Button>
             }
           </Button.Group>

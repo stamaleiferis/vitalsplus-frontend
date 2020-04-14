@@ -51,22 +51,27 @@ export default class SignalPlotter extends React.Component {
     const ecg_id = this.props.ecg_id
     this.setState({ecg_id: ecg_id});
     const response = await axios.get("http://localhost:3000/patients/patient/ecg/record/"+ecg_id)
-    console.log(response.data)
-    this.setState({samples: response.data.record[0].samples,
-                   sample_rate: response.data.record[0].sample_rate,
-                   duration: response.data.record[0].duration,
-                   timestamp: response.data.record[0].timestamp,
-                   r_peaks: response.data.record[0].r_peaks,
-                   avg_ht: response.data.record[0].avg_ht,
-                   options:{
-                     series:[
-                       {
-                         data:response.data.record[0].samples
-                       }
-                     ]
-                   }
+    //console.log(response.data)
+    try{
+      this.setState({samples: response.data.record[0].samples,
+                     sample_rate: response.data.record[0].sample_rate,
+                     duration: response.data.record[0].duration,
+                     timestamp: response.data.record[0].timestamp,
+                     r_peaks: response.data.record[0].r_peaks,
+                     avg_ht: response.data.record[0].avg_ht,
+                     options:{
+                       series:[
+                         {
+                          name:'ECG', //TODO dynamic
+                           data:response.data.record[0].samples
+                         }
+                       ]
+                     }
 
-    });
+      });
+    }catch(e){
+      console.log('Error fetching signal')
+    }
     //this.refs.chart.chart.series[0].setData(response.data.record[0].samples)
 
   }

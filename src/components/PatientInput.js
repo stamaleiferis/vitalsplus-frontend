@@ -21,7 +21,7 @@ export default class PatientInput extends React.Component {
       this.fetchEcgIds = this.fetchEcgIds.bind(this);
       this.handleChange = this.handleChange.bind(this)
 
-      this.state = {patient_id: '',email:'',name:'',ecgIds:[]};
+      this.state = {patient_id: '5e8c2c92166b290827169a74',email:'',name:'',ecgIds:[]};
       //this.ecgIds = []
     }
 
