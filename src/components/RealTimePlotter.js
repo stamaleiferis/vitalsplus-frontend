@@ -8,28 +8,30 @@ import { ecg_samples } from '../ecgValues.js'
 export default class RealTimePlotter extends React.Component {
   constructor(props) {
       super(props);
+      this.connectBT = this.connectBT.bind(this);
+      this.disconnectBT = this.disconnectBT.bind(this);
       this.togglePpgRedNotifications = this.togglePpgRedNotifications.bind(this);
       this.togglePpgIrNotifications = this.togglePpgIrNotifications.bind(this);
       this.toggleEcgNotifications = this.toggleEcgNotifications.bind(this);
       this.toggleAllNotifications = this.toggleAllNotifications.bind(this);
-
       this.resetStream = this.resetStream.bind(this);
-      let context = this;
+
       this.ecg_data = [];
       this.ppg_red_data = [];
       this.ppg_ir_data = [];
+      this.hr_data = [];
       this.ecg_count = 0
       this.ppg_red_count = 0
       this.ppg_ir_count = 0
-      this.start = 0
-      this.state = {hr: '',
-                    device:'',
-                    _ecgchar:'',
-                    _ecgon:false,
-                    _ppgredchar:'',
-                    _ppgredon:false,
-                    _ppgirchar:'',
-                    _ppgiron:false,
+      this._ecgon = false
+      this._ppgredon = false
+      this._ppgiron = false
+      this.device = ''
+      this._ecgchar = ''
+      this._ppgredchar = ''
+      this._ppgirchar = ''
+
+      this.state = {
                     options: {
                       boost: {
                         enabled: true
@@ -123,6 +125,61 @@ export default class RealTimePlotter extends React.Component {
   async componentDidMount(){
     //console.log("IN componentDidMount()")
 
+
+  }// end componentDidMount
+
+  async componentWillUnmount(){
+    if (this.device !=''){
+      await this.device.gatt.disconnect();
+    }
+  }
+  componentDidUpdate(prevProps, prevState, snapshot){
+    //console.log("componentDidUpdate")
+  }
+
+  toggleEcgNotifications(){
+    if (this._ecgon){this._ecgchar.stopNotifications()}
+    else {this._ecgchar.startNotifications()}
+    this._ecgon = !this._ecgon
+
+  }
+
+  togglePpgRedNotifications(){
+    if (this._ppgredon){this._ppgredchar.stopNotifications()}
+    else {this._ppgredchar.startNotifications()}
+    this._ppgredon = !this._ppgredon
+  }
+  togglePpgIrNotifications(){
+    if (this._ppgiron){this._ppgirchar.stopNotifications()}
+    else {this._ppgirchar.startNotifications()}
+    this._ppgiron = !this._ppgiron
+
+  }
+  toggleAllNotifications(){ //TODO fix this for on/off
+    this._ecgchar.stopNotifications();
+    this._ppgredchar.stopNotifications();
+    this._ppgirchar.stopNotifications();
+  }
+
+  async resetStream(){
+    await this._ecgchar.stopNotifications();
+    await this._ppgredchar.stopNotifications();
+    await this._ppgirchar.stopNotifications();
+    this.ecg_data = []
+    this.ppg_red_data = []
+    this.ppg_ir_data = []
+    this.refs.chart.chart.series[0].setData(this.ecg_data)
+    this.refs.chart.chart.series[1].setData(this.ppg_red_data)
+    this.refs.chart.chart.series[2].setData(this.ppg_ir_data)
+    await this._ecgchar.startNotifications();
+    await this._ppgredchar.startNotifications();
+    await this._ppgirchar.startNotifications();
+
+    //this.setState({data:[]})
+
+  }
+
+  async connectBT(){
     const ECG_SERV_UUID = 'e51b251d-b5bb-47cd-8f0b-176d7004563c'
     const ECG_CHAR_UUID = 'e51b251d-b5bb-47ce-8f0b-176d7004563c'
     const PPG_SERV_UUID = 'e14c6c9d-3497-4835-8f8b-28d7af2e6a15'
@@ -189,52 +246,25 @@ export default class RealTimePlotter extends React.Component {
       }
     );
 
-    this.setState({device:device,_ecgchar:ecgCharacteristic, _ppgredchar:ppgRedCharacteristic, _ppgirchar: ppgIrCharacteristic})
-    ecgCharacteristic.startNotifications();
-    //ppgRedCharacteristic.startNotifications();
-    //ppgIrCharacteristic.startNotifications();
-  }// end componentDidMount
+    this.device = device
+    this._ecgchar = ecgCharacteristic
+    this._ppgredchar = ppgRedCharacteristic
+    this._ppgirchar = ppgIrCharacteristic
+    ecgCharacteristic.startNotifications(); this._ecgon = true;
+    //ppgRedCharacteristic.startNotifications(); this._ppgredon = false;
+    //ppgIrCharacteristic.startNotifications(); this._ppgiron = false
 
-  async componentWillUnmount(){
-    if (this.state._ecgchar != '' && this.state._ppgredchar!='' && this.state._ppgirchar!=''){
-      this.state._ecgchar.stopNotifications();
-      this.state._ppgredchar.stopNotifications();
-      this.state._ppgirchar.stopNotifications();
-      await this.state.device.gatt.disconnect();
+  }
+
+  async disconnectBT(){
+    if (this.device != ''){
+      if (this.device.gatt.connected){
+        await this.device.gatt.disconnect()
+        console.log("Disconnected from peripheral")
+      }else{
+        console.log("Peripheral already disconnected")
+      }
     }
-  }
-  componentDidUpdate(prevProps, prevState, snapshot){
-    //console.log("componentDidUpdate")
-  }
-
-  toggleEcgNotifications(){
-    if (this.state._ecgon){this.state._ecgchar.stopNotifications()}
-    else {this.state._ecgchar.startNotifications()}
-    this.setState({_ecgon:!this.state._ecgon})
-
-    //console.log(JSON.stringify(this.state.data));
-  }
-
-  togglePpgRedNotifications(){
-    if (this.state._ppgredon){this.state._ppgredchar.stopNotifications()}
-    else {this.state._ppgredchar.startNotifications()}
-    this.setState({_ppgredon:!this.state._ppgredon})
-  }
-  togglePpgIrNotifications(){
-    if (this.state._ppgiron){this.state._ppgirchar.stopNotifications()}
-    else {this.state._ppgirchar.startNotifications()}
-    this.setState({_ppgiron:!this.state._ppgiron})
-
-  }
-  toggleAllNotifications(){ //TODO fix this for on/off
-    this.state._ecgchar.stopNotifications();
-    this.state._ppgredchar.stopNotifications();
-    this.state._ppgirchar.stopNotifications();
-  }
-
-  resetStream(){
-    //this.setState({data:[]})
-
   }
 
 
@@ -249,15 +279,14 @@ export default class RealTimePlotter extends React.Component {
         <p>{navigator.platform}</p>
 
         <div>
-        <button onClick={()=>{}}>
+        <button onClick={this.connectBT}>
           Connect BT
         </button>
-        </div>
 
-        <div>
-        <button onClick={()=>{}}>
-          Same graph/Multiple Graphs
+        <button onClick={this.disconnectBT}>
+          Disconnect
         </button>
+
         </div>
 
         <div>
