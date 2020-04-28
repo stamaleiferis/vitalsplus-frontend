@@ -2,14 +2,14 @@ import React from "react";
 import Highcharts from 'highcharts/highstock';
 import HighchartsReact from 'highcharts-react-official';
 import axios from 'axios';
-import { Form, Button, Icon, Message, Grid, Dropdown,Header } from 'semantic-ui-react';
+import { Form, Button, Icon, Message, Grid, Dropdown,Header, Statistic } from 'semantic-ui-react';
 import 'semantic-ui-css/semantic.min.css';
 import { ecg_samples } from '../ecgValues.js'
 
 export default class RealTimePlotter extends React.Component {
   constructor(props) {
       super(props);
-      this.upload_signals = this.upload_signals.bind(this);
+      this.uploadSingals = this.uploadSingals.bind(this);
       this.connectBT = this.connectBT.bind(this);
       this.disconnectBT = this.disconnectBT.bind(this);
       this.startRecording = this.startRecording.bind(this);
@@ -23,19 +23,25 @@ export default class RealTimePlotter extends React.Component {
       this.ecg_data = [];
       this.ppg_red_data = [];
       this.ppg_ir_data = [];
+      this.rr_data = [];
       this.hr_data = [];
-      this.ecg_count = 0
-      this.ppg_red_count = 0
-      this.ppg_ir_count = 0
-      this._ecgon = false
-      this._ppgredon = false
-      this._ppgiron = false
-      this.device = ''
-      this._ecgchar = ''
-      this._ppgredchar = ''
-      this._ppgirchar = ''
-      this.start_idx = 0
+      this.hr_count = 0;
+      this.ecg_count = 0;
+      this.ppg_red_count = 0;
+      this.ppg_ir_count = 0;
+      this._hron = false;
+      this._ecgon = false;
+      this._ppgredon = false;
+      this._ppgiron = false;
+      this.device = '';
+      this._hrchar = '';
+      this._ecgchar = '';
+      this._ppgredchar = '';
+      this._ppgirchar = '';
+      this.start_time = 0;
+      this.stop_time = 0;
       this.state = {
+                    hr_val: 0,
                     upload_en: false,
                     bt_connected:false,
                     options: {
@@ -72,6 +78,11 @@ export default class RealTimePlotter extends React.Component {
                           name: "PPG Infrared",
                           data:[],
                           yAxis:2
+                        },
+                        {
+                          name: "RR Interval",
+                          data:[],
+                          yAxis:3
                         }
                       ],
                       yAxis: [{ // ECG yAxis
@@ -125,7 +136,23 @@ export default class RealTimePlotter extends React.Component {
                                color: Highcharts.getOptions().colors[0]
                            }
                        }
-                     }
+                     },
+                     { // RR interval yAxis
+                      visible:true,
+                      gridLineWidth: 0,
+                      title: {
+                          text: 'Interval length',
+                          style: {
+                              color: Highcharts.getOptions().colors[0]
+                          }
+                      },
+                      labels: {
+                          format: '{value} ms',
+                          style: {
+                              color: Highcharts.getOptions().colors[0]
+                          }
+                      }
+                    }
                     ],
 
                       xAxis: {
@@ -158,12 +185,12 @@ export default class RealTimePlotter extends React.Component {
   }
 
   // TODO: ppg upload
-  async upload_signals(){
+  async uploadSingals(){
     if (this.state.upload_en){
-      const patient_id = '5e8c2c92166b290827169a74'
+      const patient_id = '5e8c2c92166b290827169a74' //TODO
       const data = {
               timestamp:JSON.stringify(new Date(Date.now())),
-              duration:'',
+              duration:this.stop_time - this.start_time,
               sample_rate:200,
               samples:this.ecg_data,
               r_peaks:[],
@@ -206,7 +233,7 @@ export default class RealTimePlotter extends React.Component {
     this.toggleEcgNotifications()
   }
 
-  async resetStream(){ //TODO: keep previous char_on state
+  async resetStream(){ //TODO: this.char.stopNotifications need to check if connected
     await this._ecgchar.stopNotifications();
     await this._ppgredchar.stopNotifications();
     await this._ppgirchar.stopNotifications();
@@ -228,37 +255,66 @@ export default class RealTimePlotter extends React.Component {
     const PPG_SERV_UUID = 'e14c6c9d-3497-4835-8f8b-28d7af2e6a15'
     const PPG_RED_CHAR_UUID = 'e14c6c9d-3497-4836-8f8b-28d7af2e6a15'
     const PPG_IR_CHAR_UUID = 'e14c6c9d-3497-4837-8f8b-28d7af2e6a15'
-    const HR_SERV_UUID = 0x180D;
-    const HR_CHAR_BPM_UUID = 0x2A37;
+    const HR_SERV_UUID = 'heart_rate'//0x180D;
+    const HR_CHAR_BPM_UUID = 'heart_rate_measurement'//0x2A37;
 
     let device = await navigator.bluetooth.requestDevice({
       filters: [
           { namePrefix: 'MAX' }
       ],
-      optionalServices: [PPG_SERV_UUID, ECG_SERV_UUID]
+      optionalServices: [PPG_SERV_UUID, ECG_SERV_UUID, HR_SERV_UUID]
     });
     let server = await device.gatt.connect();
 
-    //let service = await server.getPrimaryService(0x180D); //Heart Rate Service
-    //let characteristic = await service.getCharacteristic(0x2A37);  //Heart Rate Characteristic
     const services = await server.getPrimaryServices();
     //console.log(services)
-    const ppgService = services[0]
+    /*
+    const ppgService = services[0]  // TODO need to make sure the order is consistent, maybe parse object and choose by the uuid
     const ecgService = services[1]
-    //console.log(service)
+    const hrService = services[2] */
+
+    const ecgService = services.find(e => e.uuid == "e51b251d-b5bb-47cd-8f0b-176d7004563c")
+    const ppgService = services.find(e => e.uuid == "e14c6c9d-3497-4835-8f8b-28d7af2e6a15")
+    const hrService = services.find(e => e.uuid == "0000180d-0000-1000-8000-00805f9b34fb")
+
     const ppgRedCharacteristic = await ppgService.getCharacteristic(PPG_RED_CHAR_UUID);
     const ppgIrCharacteristic = await ppgService.getCharacteristic(PPG_IR_CHAR_UUID);
-    let ecgCharacteristic = await ecgService.getCharacteristic(ECG_CHAR_UUID);
+    const ecgCharacteristic = await ecgService.getCharacteristic(ECG_CHAR_UUID);
+    const hrCharacteristic = await hrService.getCharacteristic(HR_CHAR_BPM_UUID);
 
+    hrCharacteristic.stopNotifications(); this._hron = false;
     ecgCharacteristic.stopNotifications(); this._ecgon = false;
     ppgRedCharacteristic.stopNotifications(); this._ppgredon = false;
     ppgIrCharacteristic.stopNotifications(); this._ppgiron = false;
     this.device = device
+    this._hrchar = hrCharacteristic
     this._ecgchar = ecgCharacteristic
     this._ppgredchar = ppgRedCharacteristic
     this._ppgirchar = ppgIrCharacteristic
     this.setState({bt_connected:true})
 
+    // on hr bpm characteristic change
+    hrCharacteristic.addEventListener(
+      'characteristicvaluechanged', e => {
+        let uint8hr = e.target.value.getUint16(0,true) >> 8;
+        let count = this.hr_count;
+        //this.hr_data.push(uint8hr)
+        //this.hr_data.push((Math.round(200*60)/uint8hr))
+        this.hr_data.push(uint8hr)
+        this.hr_count = count + 1
+        let shift = false
+        let draw = false
+        if (count > 300){shift = true}
+        if (count%15==0){draw = true}
+        this.refs.chart.chart.series[3].addPoint(uint8hr, draw, shift,false)
+
+        this.setState({hr_val:uint8hr})
+        console.log(uint8hr)
+        //this.setState({hr_val:(Math.round(200*60)/uint8hr)})
+        //console.log(uint8hr)
+
+
+    });
 
     // on red ppg char change
     ppgRedCharacteristic.addEventListener(
@@ -270,8 +326,8 @@ export default class RealTimePlotter extends React.Component {
           this.ppg_red_count = count + 1
           let shift = false
           let draw = false
-          if (count > 700){shift = true}
-          if (count%5==0){draw = true}
+          if (count > 300){shift = true}
+          if (count%15==0){draw = true}
           this.refs.chart.chart.series[1].addPoint(uint32ppgred, draw, shift,false)
 
       }
@@ -287,8 +343,8 @@ export default class RealTimePlotter extends React.Component {
           this.ppg_ir_count = count + 1
           let shift = false
           let draw = false
-          if (count > 700){shift = true}
-          if (count%5==0){draw = true}
+          if (count > 300){shift = true}
+          if (count%15==0){draw = true}
           this.refs.chart.chart.series[2].addPoint(uint32ppgir, draw, shift,false)
 
       }
@@ -305,17 +361,19 @@ export default class RealTimePlotter extends React.Component {
           this.ecg_count = count+1
           let shift = false
           let draw = false
-          if (count > 700){shift = true}
-          if (count%5==0){draw = true}
+          if (count > 100){shift = true}
+          if (count%20==0){draw = true}
           /*
-          if (count%5==0){
+          if (count%15==0){
             this.refs.chart.chart.series[0].setData(this.ecg_data)
           }*/
 
-          this.refs.chart.chart.series[0].addPoint(int16ecg, draw, shift,false)
+          //this.refs.chart.chart.series[0].addPoint(int16ecg, draw, shift,false)
+          this.refs.chart.chart.series[0].addPoint(this.ecg_count, draw, shift,false)
+
       }
     );
-
+    this.startRecording();
   }
 
   startRecording(){
@@ -323,22 +381,30 @@ export default class RealTimePlotter extends React.Component {
       this.refs.chart.chart.series[0].setData([])
       this.refs.chart.chart.series[1].setData([])
       this.refs.chart.chart.series[2].setData([])
+      this.refs.chart.chart.series[3].setData([])
       this.refs.chart.chart.redraw(false)
+      this.hr_data = [];      this.hr_count = 0
       this.ecg_data = [];     this.ecg_count = 0
       this.ppg_red_data = []; this.ppg_red_count = 0
       this.ppg_ir_data = [];  this.ppg_ir_count = 0
 
+      //this._hrchar.startNotifications(); this._hron = true;
       this._ecgchar.startNotifications(); this._ecgon = true;
       //this._ppgredchar.startNotifications(); this._ppgredon = true;
       //this._ppgirchar.startNotifications(); this._ppgiron = true;
+      this.start_time = Date.now();
     }
   }
 
   stopRecording(){
+    this._hrchar.stopNotifications(); this._hron = false;
     this._ecgchar.stopNotifications(); this._ecgon = false;
     this._ppgredchar.stopNotifications(); this._ppgredon = false;
     this._ppgirchar.stopNotifications(); this._ppgiron = false;
+    this.stop_time = Date.now();
     this.refs.chart.chart.series[0].setData(this.ecg_data)
+    //TODO for PPGs
+    this.refs.chart.chart.series[3].setData(this.hr_data)
     this.setState({upload_en:true})
 
   }
@@ -406,7 +472,7 @@ export default class RealTimePlotter extends React.Component {
             <Button icon='stop' content='Stop recording' onClick={this.stopRecording}>
             </Button>
             {this.state.upload_en &&
-              <Button icon='cloud upload' onClick={this.upload_signals}>
+              <Button icon='cloud upload' content='Upload' onClick={this.uploadSingals}>
               </Button>
             }
           </Button.Group>
@@ -415,7 +481,11 @@ export default class RealTimePlotter extends React.Component {
         }
 
 
-
+        <Statistic horizontal>
+          <Statistic.Label>HR: </Statistic.Label>
+          <Statistic.Value>{this.state.hr_val}</Statistic.Value>
+          <Statistic.Label>BPM</Statistic.Label>
+        </Statistic>
 
         <HighchartsReact
           highcharts={Highcharts}
