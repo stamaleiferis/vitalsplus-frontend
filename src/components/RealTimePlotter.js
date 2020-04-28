@@ -304,12 +304,12 @@ export default class RealTimePlotter extends React.Component {
         this.hr_count = count + 1
         let shift = false
         let draw = false
-        if (count > 300){shift = true}
-        if (count%15==0){draw = true}
+        if (count > 400){shift = true}
+        if (count%5==0){draw = true}
         this.refs.chart.chart.series[3].addPoint(uint8hr, draw, shift,false)
 
         this.setState({hr_val:uint8hr})
-        console.log(uint8hr)
+        //console.log(uint8hr)
         //this.setState({hr_val:(Math.round(200*60)/uint8hr)})
         //console.log(uint8hr)
 
@@ -387,7 +387,7 @@ export default class RealTimePlotter extends React.Component {
       this.ppg_red_data = []; this.ppg_red_count = 0
       this.ppg_ir_data = [];  this.ppg_ir_count = 0
 
-      //this._hrchar.startNotifications(); this._hron = true;
+      this._hrchar.startNotifications(); this._hron = true;
       this._ecgchar.startNotifications(); this._ecgon = true;
       //this._ppgredchar.startNotifications(); this._ppgredon = true;
       //this._ppgirchar.startNotifications(); this._ppgiron = true;
