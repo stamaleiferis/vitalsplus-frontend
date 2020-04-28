@@ -361,15 +361,14 @@ export default class RealTimePlotter extends React.Component {
           this.ecg_count = count+1
           let shift = false
           let draw = false
-          if (count > 100){shift = true}
-          if (count%20==0){draw = true}
+          if (count > 400){shift = true}
+          if (count%5==0){draw = true}
           /*
           if (count%15==0){
             this.refs.chart.chart.series[0].setData(this.ecg_data)
           }*/
 
-          //this.refs.chart.chart.series[0].addPoint(int16ecg, draw, shift,false)
-          this.refs.chart.chart.series[0].addPoint(this.ecg_count, draw, shift,false)
+          this.refs.chart.chart.series[0].addPoint(int16ecg, draw, shift,false)
 
       }
     );
