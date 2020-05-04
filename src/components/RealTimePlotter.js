@@ -106,7 +106,7 @@ export default class RealTimePlotter extends React.Component {
 
                       },
                        { // PPG Red yAxis
-                        visible:false,
+                        visible:true,
                         gridLineWidth: 0,
                         title: {
                             text: 'Photon Count Red',
@@ -176,7 +176,7 @@ export default class RealTimePlotter extends React.Component {
     if (this.device !=''){
       if (this.device.gatt.connected){
         await this.device.gatt.disconnect()
-        this.state.bt_connected = false
+        this.setState({bt_connected:false})
       }
     }
   }
@@ -194,7 +194,7 @@ export default class RealTimePlotter extends React.Component {
               sample_rate:200,
               samples:this.ecg_data,
               r_peaks:[],
-              avg_ht:72,
+              avg_ht:72, //TODO
               afib:false
       }
       const response = await axios.post('http://localhost:3000/patients/patient/ecg/record/'+patient_id, data);
@@ -233,7 +233,7 @@ export default class RealTimePlotter extends React.Component {
     this.toggleEcgNotifications()
   }
 
-  async resetStream(){ //TODO: this.char.stopNotifications need to check if connected
+  async resetStream(){ //TODO: this.char.stopNotifications need to check if connected, do for hr
     await this._ecgchar.stopNotifications();
     await this._ppgredchar.stopNotifications();
     await this._ppgirchar.stopNotifications();
@@ -268,10 +268,6 @@ export default class RealTimePlotter extends React.Component {
 
     const services = await server.getPrimaryServices();
     //console.log(services)
-    /*
-    const ppgService = services[0]  // TODO need to make sure the order is consistent, maybe parse object and choose by the uuid
-    const ecgService = services[1]
-    const hrService = services[2] */
 
     const ecgService = services.find(e => e.uuid == "e51b251d-b5bb-47cd-8f0b-176d7004563c")
     const ppgService = services.find(e => e.uuid == "e14c6c9d-3497-4835-8f8b-28d7af2e6a15")
@@ -297,6 +293,7 @@ export default class RealTimePlotter extends React.Component {
     hrCharacteristic.addEventListener(
       'characteristicvaluechanged', e => {
         let uint8hr = e.target.value.getUint16(0,true) >> 8;
+        //console.log(uint8hr)
         let count = this.hr_count;
         //this.hr_data.push(uint8hr)
         //this.hr_data.push((Math.round(200*60)/uint8hr))
@@ -304,7 +301,7 @@ export default class RealTimePlotter extends React.Component {
         this.hr_count = count + 1
         let shift = false
         let draw = false
-        if (count > 400){shift = true}
+        if (count > 250){shift = true}
         if (count%5==0){draw = true}
         this.refs.chart.chart.series[3].addPoint(uint8hr, draw, shift,false)
 
@@ -326,8 +323,8 @@ export default class RealTimePlotter extends React.Component {
           this.ppg_red_count = count + 1
           let shift = false
           let draw = false
-          if (count > 300){shift = true}
-          if (count%15==0){draw = true}
+          if (count > 250){shift = true}
+          if (count%5==0){draw = true}
           this.refs.chart.chart.series[1].addPoint(uint32ppgred, draw, shift,false)
 
       }
@@ -339,12 +336,12 @@ export default class RealTimePlotter extends React.Component {
           //console.log("PPG IR val changed")
           let uint32ppgir = e.target.value.getUint32(0,true); //get value
           let count = this.ppg_red_count; //number of samples in the array
-          //this.ppg_ir_data.push(uint32ppgir)
+          this.ppg_ir_data.push(uint32ppgir)
           this.ppg_ir_count = count + 1
           let shift = false
           let draw = false
-          if (count > 300){shift = true}
-          if (count%15==0){draw = true}
+          if (count > 250){shift = true}
+          if (count%5==0){draw = true}
           this.refs.chart.chart.series[2].addPoint(uint32ppgir, draw, shift,false)
 
       }
@@ -356,17 +353,12 @@ export default class RealTimePlotter extends React.Component {
           //console.log("ECG val changed")
           let int16ecg = e.target.value.getInt16(0,true); //get value
           let count = this.ecg_count; //number of samples in the array
-          //if (count>300){shift=true}//{this.start=this.start+1} // how many samples to hold at a time TODO change
           this.ecg_data.push(int16ecg)
           this.ecg_count = count+1
           let shift = false
           let draw = false
-          if (count > 400){shift = true}
+          if (count > 250){shift = true}
           if (count%5==0){draw = true}
-          /*
-          if (count%15==0){
-            this.refs.chart.chart.series[0].setData(this.ecg_data)
-          }*/
 
           this.refs.chart.chart.series[0].addPoint(int16ecg, draw, shift,false)
 
@@ -402,6 +394,7 @@ export default class RealTimePlotter extends React.Component {
     this._ppgirchar.stopNotifications(); this._ppgiron = false;
     this.stop_time = Date.now();
     this.refs.chart.chart.series[0].setData(this.ecg_data)
+    this.refs.chart.chart.series[1].setData(this.ppg_red_data)
     //TODO for PPGs
     this.refs.chart.chart.series[3].setData(this.hr_data)
     this.setState({upload_en:true})
