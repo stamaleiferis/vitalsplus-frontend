@@ -4,7 +4,7 @@ import HighchartsReact from 'highcharts-react-official';
 import axios from 'axios';
 import { Form, Button, Icon, Message, Grid, Dropdown,Header, Statistic } from 'semantic-ui-react';
 import 'semantic-ui-css/semantic.min.css';
-import { ecg_samples } from '../ecgValues.js'
+
 
 export default class RealTimePlotter extends React.Component {
   constructor(props) {

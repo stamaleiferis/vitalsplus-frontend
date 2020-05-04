@@ -10,8 +10,6 @@ import PatientInput from './components/PatientInput';
 import SignalPlotter from './components/SignalPlotter';
 import RealTimePlotter from './components/RealTimePlotter';
 import PatientDetails from './components/PatientDetails';
-import { ecg_samples } from './ecgValues.js'
-//import Bluetooth	from 'node-web-bluetooth';
 
 
 import {
