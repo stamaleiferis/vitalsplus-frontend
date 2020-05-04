@@ -39,7 +39,7 @@ const options = {
   },
   series: [
     {
-      data: ecg_samples
+      data: []
     }
   ]
 };
