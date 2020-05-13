@@ -10,8 +10,6 @@ import PatientInput from './components/PatientInput';
 import SignalPlotter from './components/SignalPlotter';
 import RealTimePlotter from './components/RealTimePlotter';
 import PatientDetails from './components/PatientDetails';
-import { ecg_samples } from './ecgValues.js'
-//import Bluetooth	from 'node-web-bluetooth';
 
 
 import {
@@ -41,7 +39,7 @@ const options = {
   },
   series: [
     {
-      data: ecg_samples
+      data: []
     }
   ]
 };
@@ -53,15 +51,15 @@ export default function App() {
     <Router>
       <div>
       <Menu fluid tabular>
-        <Menu.Item link>
+        {/*<Menu.Item link>
             <Link to="/">Home</Link>
-        </Menu.Item>
+        </Menu.Item>*/}
         <Menu.Item link>
             <Link to="/realTime">Real time plot</Link>
         </Menu.Item>
-        <Menu.Item link>
+        {/*<Menu.Item link>
             <Link to="/signals">Signals</Link>
-        </Menu.Item>
+        </Menu.Item>*/}
       </Menu>
 
 
@@ -77,7 +75,7 @@ export default function App() {
         */}
         <Switch>
           <Route exact path="/">
-            <PatientInput />
+            <PatientInput />  */
           </Route>
           <Route path="/realTime" component={RealTimePlotter}>
 

@@ -43,6 +43,8 @@ export default class PatientDetails extends React.Component {
 
               return (
                 <div className="ecgId" key={index}>
+                <br>
+                </br>
 
                   <SignalPlotter ecg_id={ecgId}/>
 
