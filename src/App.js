@@ -51,15 +51,15 @@ export default function App() {
     <Router>
       <div>
       <Menu fluid tabular>
-        <Menu.Item link>
+        {/*<Menu.Item link>
             <Link to="/">Home</Link>
-        </Menu.Item>
+        </Menu.Item>*/}
         <Menu.Item link>
             <Link to="/realTime">Real time plot</Link>
         </Menu.Item>
-        <Menu.Item link>
+        {/*<Menu.Item link>
             <Link to="/signals">Signals</Link>
-        </Menu.Item>
+        </Menu.Item>*/}
       </Menu>
 
 
@@ -75,7 +75,7 @@ export default function App() {
         */}
         <Switch>
           <Route exact path="/">
-            <PatientInput />
+            <PatientInput />  */
           </Route>
           <Route path="/realTime" component={RealTimePlotter}>
 
